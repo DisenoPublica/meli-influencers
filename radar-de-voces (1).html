@@ -1,0 +1,328 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><title>Radar de voces</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..900&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: tablero por categoría — una sección por tipo de voz, fichas compactas con alcance por red, "qué aporta" y más información desplegable */
+:root{
+  --bg:#f3f4f7; --surface:#ffffff; --ink:#151a2e; --muted:#5d6377; --line:#dfe2ea;
+  --accent:#ffd400; --accent-ink:#151a2e; --navy:#23307a;
+  --ig:#c13584; --tt:#0f9fa8; --yt:#d63a2f;
+  --warn-bg:#fff3d6; --warn-ink:#7a4b00; --soft:#e6ecff; --green-bg:#e3f5e8; --green-ink:#1d6b35;
+  --display:"Archivo","Arial Narrow",Arial,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1220; --surface:#181c2e; --ink:#eef0f7; --muted:#9aa1b8; --line:#2a3048;
+  --navy:#9fb0ff; --ig:#e05aa8; --tt:#2ec4cc; --yt:#f0655b;
+  --warn-bg:#3a2c0c; --warn-ink:#ffd27a; --soft:#23295a; --green-bg:#173823; --green-ink:#8fe0a8; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1220; --surface:#181c2e; --ink:#eef0f7; --muted:#9aa1b8; --line:#2a3048;
+  --navy:#9fb0ff; --ig:#e05aa8; --tt:#2ec4cc; --yt:#f0655b;
+  --warn-bg:#3a2c0c; --warn-ink:#ffd27a; --soft:#23295a; --green-bg:#173823; --green-ink:#8fe0a8; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{display:flex;flex-wrap:wrap;gap:18px 32px;align-items:flex-end;justify-content:space-between;border-bottom:2px solid var(--ink);padding-bottom:18px}
+h1{font-family:var(--display);font-stretch:72%;font-weight:900;font-size:clamp(34px,6vw,60px);line-height:.95;margin:0;text-transform:uppercase}
+h1 mark{background:var(--accent);color:var(--accent-ink);padding:0 .12em}
+.lede{color:var(--muted);max-width:56ch;margin:10px 0 0}
+.stats{display:flex;gap:28px}
+.stat b{display:block;font-family:var(--display);font-stretch:80%;font-weight:800;font-size:30px;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+
+.bar-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:18px 0 6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 420px}
+.chip{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer}
+.chip:hover{border-color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.search,select,.f input,.f textarea{font:inherit;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 10px}
+.search{width:min(240px,100%)}
+.btn{font:inherit;font-weight:600;font-size:14px;border:0;border-radius:8px;padding:9px 14px;cursor:pointer;background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn:disabled{opacity:.6;cursor:default}
+:is(.chip,.search,select,.btn,a,input,textarea,.link):focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.group{margin-top:30px}
+.group-head{display:flex;align-items:baseline;gap:12px;margin-bottom:12px}
+.group-head h2{font-family:var(--display);font-stretch:85%;font-weight:800;font-size:20px;margin:0;text-transform:uppercase;letter-spacing:.01em}
+.group-head span{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;align-items:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.name{font-family:var(--display);font-stretch:85%;font-weight:800;font-size:19px;line-height:1.15;margin:0}
+.meta{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;font-size:12.5px;margin-top:2px}
+.handle{font-family:var(--mono);color:var(--navy);text-decoration:underline;text-underline-offset:2px;font-weight:500}
+.handle:hover{text-decoration-thickness:2px}
+.place{color:var(--muted)}
+.badge{font-size:11px;font-weight:600;border-radius:4px;padding:1px 6px}
+.badge.int{background:var(--green-bg);color:var(--green-ink)}
+.reach{text-align:right;flex-shrink:0}
+.reach b{display:block;font-family:var(--display);font-stretch:80%;font-weight:800;font-size:22px;line-height:1;font-variant-numeric:tabular-nums}
+.reach span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.nets{display:grid;gap:5px}
+.net{display:grid;grid-template-columns:70px 1fr 58px;gap:8px;align-items:center;font-size:12.5px;text-decoration:none;color:var(--ink)}
+.net:hover .nlab{text-decoration:underline}
+.nlab{color:var(--muted)}
+.bar{height:7px;background:var(--line);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:4px}
+.nval{font-family:var(--mono);font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+.k{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.aporte{border-top:1px dashed var(--line);padding-top:10px;font-size:13.5px}
+.info{background:var(--soft);border-radius:8px;padding:10px 12px;font-size:13.5px}
+.alert{background:var(--warn-bg);color:var(--warn-ink);font-size:12.5px;border-radius:6px;padding:6px 10px}
+.actions{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.link{font:inherit;font-size:13px;font-weight:600;background:none;border:0;color:var(--navy);cursor:pointer;padding:0}
+.link.muted{font-weight:400;color:var(--muted);text-decoration:underline}
+.confirm{font-size:13px;display:flex;gap:10px;align-items:center}
+.empty{color:var(--muted);padding:40px 0;text-align:center}
+.notice{background:var(--surface);border:1px dashed var(--line);border-radius:10px;padding:28px;margin-top:24px;text-align:center;color:var(--muted)}
+
+.panel{background:var(--surface);border:1px solid var(--ink);border-radius:10px;padding:18px;margin-top:14px}
+.panel h2{font-family:var(--display);font-stretch:85%;font-weight:800;font-size:20px;margin:0 0 12px;text-transform:uppercase}
+.form{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.f{display:grid;gap:4px;font-size:13px;min-width:0}
+.f span{color:var(--muted)}
+.f.wide{grid-column:1/-1}
+.f textarea{min-height:64px;resize:vertical}
+.check{display:flex;gap:8px;align-items:center;font-size:14px;align-self:end;padding-bottom:8px}
+.form-actions{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.err{font-size:13px;color:var(--yt)}
+.star{font-size:22px;line-height:1;background:none;border:0;cursor:pointer;color:var(--muted);padding:2px 4px;border-radius:6px;flex-shrink:0}
+.star[aria-pressed="true"]{color:#e0a800}
+.star:hover{color:#e0a800}
+.star:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.card.fav{border-color:#e0a800;box-shadow:inset 0 3px 0 #e0a800}
+.card.arch{opacity:.72;border-style:dashed}
+.badge.arch{background:var(--line);color:var(--muted)}
+.link.danger{color:var(--yt);font-weight:600}
+.more{position:relative}
+.more-btn{font:inherit;font-size:13px;background:none;border:0;color:var(--muted);cursor:pointer;padding:6px 2px;display:inline-flex;gap:4px;align-items:center}
+.more-btn:hover{color:var(--ink)}
+.more-btn .caret{font-size:10px;transition:transform .15s}
+.more-btn[aria-expanded="true"] .caret{transform:rotate(180deg)}
+.more-btn .count{background:var(--ink);color:var(--bg);border-radius:999px;font-size:11px;font-weight:600;padding:0 6px;line-height:16px}
+.more-btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:4px}
+.more-panel{position:absolute;right:0;top:calc(100% + 4px);z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 12px;display:grid;gap:4px;min-width:170px;box-shadow:0 6px 18px rgba(0,0,0,.08)}
+.more-panel label{display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer;color:var(--ink);padding:3px 0}
+.mode{font-size:12.5px;color:var(--muted);margin-top:6px}
+footer{margin-top:32px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Radar de <mark>voces</mark></h1>
+      <p class="lede">Los creadores en evaluación para Mercado Libre, ordenados por el tipo de voz que aportan, con su alcance por red. Marcá favoritos con la estrella, archivá los que quedan en pausa y sumá perfiles nuevos.</p>
+      <p class="mode" id="mode"></p>
+    </div>
+    <div class="stats" aria-live="polite">
+      <div class="stat"><b id="s-perfiles">–</b><span>Creadores</span></div>
+      <div class="stat"><b id="s-fav">–</b><span>Favoritos</span></div>
+    </div>
+  </header>
+
+  <div class="bar-tools">
+    <div class="chips" id="chips" role="group" aria-label="Filtrar por categoría"></div>
+    <input class="search" id="q" type="search" placeholder="Buscar creador" aria-label="Buscar creador">
+    <select id="orden" aria-label="Ordenar">
+      <option value="total">Más seguidores</option>
+      <option value="nombre">A a Z</option>
+    </select>
+    <div class="more">
+      <button class="more-btn" id="more-btn" type="button" aria-expanded="false" aria-controls="more-panel">Otros filtros <span class="caret" aria-hidden="true">▾</span></button>
+      <div class="more-panel" id="more-panel" hidden>
+        <label><input type="checkbox" id="fl-int"> Del interior</label>
+        <label><input type="checkbox" id="fl-fav"> Favoritos</label>
+        <label><input type="checkbox" id="fl-arch"> Ver archivados</label>
+      </div>
+    </div>
+    <button class="btn" id="open-add" type="button" aria-expanded="false" aria-controls="add" hidden>+ Agregar creador</button>
+  </div>
+
+  <section class="panel" id="add" hidden aria-label="Agregar creador">
+    <h2>Nuevo creador</h2>
+    <form class="form" id="add-form" novalidate>
+      <label class="f"><span>Nombre *</span><input id="a-n" required></label>
+      <label class="f"><span>Usuario de Instagram *</span><input id="a-h" placeholder="sin @" required></label>
+      <label class="f"><span>Categoría *</span><select id="a-c"></select></label>
+      <label class="f"><span>De dónde es</span><input id="a-place" placeholder="Ej: Córdoba"></label>
+      <label class="check"><input type="checkbox" id="a-int"> Es del interior</label>
+      <label class="f"><span>Seguidores en Instagram</span><input id="a-ig" inputmode="decimal" placeholder="Ej: 250000 o 250k"></label>
+      <label class="f"><span>Seguidores en TikTok</span><input id="a-tt" inputmode="decimal" placeholder="Ej: 1,2M"></label>
+      <label class="f"><span>Usuario de TikTok</span><input id="a-htt" placeholder="Si es distinto al de IG"></label>
+      <label class="f"><span>Seguidores en YouTube</span><input id="a-yt" inputmode="decimal" placeholder="Opcional"></label>
+      <label class="f"><span>Usuario de YouTube</span><input id="a-hyt" placeholder="Si es distinto al de IG"></label>
+      <label class="check"><input type="checkbox" id="a-fav"> Marcar como favorito</label>
+      <label class="f wide"><span>¿Qué aporta a Meli?</span><textarea id="a-ap" placeholder="Por qué tiene sentido que hable de la marca"></textarea></label>
+      <label class="f wide"><span>Más información: qué hace esta persona</span><textarea id="a-info" placeholder="Profesión, tipo de contenido, logros"></textarea></label>
+      <label class="f wide"><span>Alerta o chequeo pendiente</span><input id="a-al" placeholder="Opcional"></label>
+      <div class="form-actions">
+        <button class="btn" type="submit" id="a-save">Guardar creador</button>
+        <button class="btn ghost" type="button" id="cancel-add">Cancelar</button>
+        <span class="err" id="a-err" role="alert"></span>
+      </div>
+    </form>
+  </section>
+
+  <main id="board"><p class="notice">Cargando la lista de creadores…</p></main>
+
+  <footer>Seguidores relevados el 29/10/2026 en los perfiles públicos. Las alertas son chequeos pendientes antes de contactar.</footer>
+</div>
+
+<script>
+const SNAPSHOT=[{"a": "", "ap": "Divulgadora científica. Traduce la tecnología y la logística de Meli a ciencia cotidiana y le da credibilidad a su innovación.", "c": "Ciencia y divulgación", "f": {"ig": 800000, "tt": 1200000, "yt": 83500}, "h": "almendraveiga", "hd": {"tt": "almendraveiga", "yt": "almendraveiga"}, "info": "Divulgadora de ciencia y libros. Co-conduce el podcast de ciencia En Teoría (162 mil suscriptores en YouTube) con Celeste Giardinelli y el stream Estrelladas en Data.", "interior": false, "n": "Almendra Veiga", "place": "", "id": "almendraveiga"}, {"a": "Perfil que opina mucho: riesgo de polémica.", "ap": "Reflexiones en modo vlog. Cuenta el efecto de cada compra en las personas que trabajan detrás.", "c": "Emprendedores", "f": {"ig": 206000, "tt": 356300, "yt": 17600}, "h": "andreslosano_", "hd": {"tt": "andreslosano_", "yt": "AndrewLosano"}, "info": "Licenciado en Administración (UBA). Conduce el podcast Es Un Facto sobre desarrollo personal y hace reflexiones en modo vlog.", "interior": false, "n": "Andrés Losano", "place": "", "id": "andreslosano_"}, {"a": "Perfil que opina mucho: riesgo de polémica.", "ap": "Voz del mundo PyME. Muestra a Meli como la herramienta que deja a un negocio chico competir con los grandes.", "c": "Emprendedores", "f": {"ig": 683000}, "h": "beltranbriones", "hd": {}, "info": "Desarrollador inmobiliario y cofundador de Grupo Briones. Se hizo conocido con videos de humor sobre el mundo PyME (\"Niño PyME\") junto a Joaco Vázquez Blanco. Da charlas en universidades y publicó un libro.", "interior": false, "n": "Beltrán Briones", "place": "Buenos Aires", "id": "beltranbriones"}, {"a": "", "ap": "Escritora joven con una comunidad fiel. Aporta una mirada cotidiana y cercana para hablar de Meli en la vida diaria.", "c": "Periodismo y actualidad", "f": {"ig": 82200}, "h": "buera.a", "hd": {}, "info": "Escritora. Co-conduce el stream Estrelladas en Data con Almendra Veiga y Jacinta de Oromí, hace videos en YouTube y tiene el podcast ¿Estás?.", "interior": false, "n": "buera", "place": "", "id": "buera.a"}, {"a": "", "ap": "Viaja por el país y el mundo. Muestra que Meli llega a destinos chicos y acompaña en cualquier lugar.", "c": "Viajes", "f": {"ig": 749000, "tt": 6900000, "yt": 523000}, "h": "celes.salas", "hd": {"tt": "celessalas", "yt": "celessalas3644"}, "info": "Creadora de contenido y artista de 20 años. Viaja por el país y el mundo y comparte su vida con humor. También hace música.", "interior": false, "n": "Celes Salas", "place": "", "id": "celes.salas"}, {"a": "Postura pública sobre el financiamiento de la ciencia.", "ap": "Científico del CONICET. Le da a Meli una voz de conocimiento y curiosidad.", "c": "Ciencia y divulgación", "f": {"ig": 312000}, "h": "fabballarini", "hd": {}, "info": "Biólogo (UBA) e investigador del CONICET, director del Departamento de Ciencias de la Vida del ITBA. Es columnista de ciencia en Olga y autor de \"Desconectados\".", "interior": false, "n": "Fabricio Ballarini", "place": "", "id": "fabballarini"}, {"a": "", "ap": "Emprendedor que arrancó vendiendo online desde el interior. Su historia es la de las PyMEs que crecen con Meli.", "c": "Emprendedores", "f": {"ig": 111000, "tt": 318100}, "h": "fede_robello", "hd": {"tt": "federico.robello"}, "info": "Emprendedor mendocino de 23 años. Arrancó a los 18 con un préstamo de 300 dólares vendiendo mates online (Piel de Mate) a todo el país. Hoy tiene Guchini, una sanguchería con locales en Mendoza y una franquicia en Córdoba. Representó a Mendoza en el Premio Empresario Argentino 2026 de CAME Joven.", "interior": true, "n": "Federico Robello", "place": "Mendoza", "id": "fede_robello"}, {"a": "Maneja la presencia digital de Beltrán Briones y dijo en una entrevista que trabajaría con Javier Milei.", "ap": "Estratega digital de 20 años con su propia empresa. Es la voz de cómo un emprendedor convierte la atención en ventas, algo que cualquier vendedor de Meli necesita.", "c": "Emprendedores", "f": {"ig": 477000, "tt": 127900}, "h": "fraancastro_", "hd": {"tt": "fraancastro_"}, "info": "Francisco Castro está al frente de ROMS. Creó el sistema de multicuentas y omnipresencia detrás del crecimiento de Beltrán Briones, Tino Mossu y Mauro Stendel. Dio una charla TEDx en la UTN Córdoba y ganó un Premio Ídolo en Actualidad.", "interior": false, "n": "Fran Castro", "place": "", "id": "fraancastro_"}, {"a": "", "ap": "Docente y referente de comunicación. Puede enseñar a contar una historia con ejemplos reales de emprendedores que venden en Meli.", "c": "Periodismo y actualidad", "f": {"ig": 948000, "yt": 1580000}, "h": "francopisso", "hd": {"yt": "FrancoPisso"}, "info": "Abogado, docente y magíster en Oratoria. Enseña a comunicar en redes, cursos y libros, y da conferencias.", "interior": false, "n": "Franco Pisso", "place": "", "id": "francopisso"}, {"a": "", "ap": "Periodista joven que explica temas complejos en lenguaje simple. Acerca a Meli a la generación que recién empieza a trabajar y emprender.", "c": "Periodismo y actualidad", "f": {"ig": 45800, "tt": 2700, "yt": 71700}, "h": "gaspardiazzz", "hd": {"tt": "gaspardiazzz", "yt": "LaSillitaPodcast"}, "info": "Tiene 21 años, estudia Periodismo y es columnista en Olga. Conduce La Sillita, un podcast de entrevistas \"hecho 100% por jóvenes\" (90 mil en Instagram; el YouTube que figura es el del podcast), nominado a los Premios Ídolo 2026.", "interior": false, "n": "Gaspi Díaz", "place": "", "id": "gaspardiazzz"}, {"a": "", "ap": "Referente de ahorro y buenos precios. Muestra la conveniencia de Meli con ejemplos concretos.", "c": "Economía y finanzas", "f": {"ig": 842000, "tt": 426700, "yt": 4000}, "h": "jefadelahorro", "hd": {"tt": "jefadelahorro", "yt": "Jefadelahorro"}, "info": "Martina, \"la chica de las ofertas\". Recorre Buenos Aires buscando buenos precios y comparte ofertas, gangas y tips de ahorro. Tiene su propia marca.", "interior": false, "n": "Jefa del Ahorro", "place": "Buenos Aires", "id": "jefadelahorro"}, {"a": "Comunidad chica, postura al límite.", "ap": "Divulgador joven de temas largos en videos cortos. Explica en simple el rol de Meli en la economía real.", "c": "Periodismo y actualidad", "f": {"ig": 41500, "tt": 18100}, "h": "joaco.barbieri", "hd": {"tt": "joacobarbieri"}, "info": "Divulgador que hace \"videos cortos sobre temas largos\": explica historia, economía e ingenio argentino de forma simple.", "interior": false, "n": "Joaco Barbieri", "place": "", "id": "joaco.barbieri"}, {"a": "Su cuenta propia es chica (20 mil en Instagram): el alcance fuerte lo tiene junto a Beltrán.", "ap": "Ex corpo que fundó su propia agencia. Puede contar desde adentro por qué Meli se piensa como startup y no como corporación.", "c": "Emprendedores", "f": {"ig": 19900}, "h": "joacovazquezblanco", "hd": {"tt": "joacovazquezblanco"}, "info": "Se hizo conocido como \"Niño Corpo\" con videos de humor sobre el contraste entre las multinacionales y las PyMEs, junto a Beltrán Briones. Dejó el mundo corporativo y hoy dirige su agencia, Jinetes.", "interior": false, "n": "Joaco Vázquez Blanco", "place": "", "id": "joacovazquezblanco"}, {"a": "Chequear si su contrato con CNN permite contenido con marcas.", "ap": "Periodista económica de CNN. Aporta credibilidad de medio para hablar del impacto de Meli en el empleo y las PyMEs.", "c": "Economía y finanzas", "f": {"ig": 185000, "tt": 80200}, "h": "jultarres", "hd": {"tt": "jultarres"}, "info": "Periodista y conductora de #CNNEconomía, magíster en Economía por la Di Tella y autora de \"Argenplata\" (Penguin). Hace contenido de finanzas personales.", "interior": false, "n": "Julieta Tarrés", "place": "", "id": "jultarres"}, {"a": "", "ap": "Ingeniero agrónomo y productor. Muestra cómo Meli llega al campo y a los pueblos rurales.", "c": "Ciencia y divulgación", "f": {"ig": 2500000, "tt": 1100000}, "h": "lajoya.agro", "hd": {"tt": "lajoya.agro"}, "info": "Ingeniero agrónomo y productor ganadero de Santa Fe. Explica situaciones del campo para gente de ciudad, creó una bolsa de empleo rural y estuvo nominado en los Premios Ídolo 2026.", "interior": true, "n": "Bruno Riboldi · La Joya Agro", "place": "Santa Fe", "id": "lajoya.agro"}, {"a": "Chequear vínculos con brokers o fintech.", "ap": "Economista que enseña a decidir compras informadas. Asocia a Meli con planificación y educación financiera.", "c": "Economía y finanzas", "f": {"ig": 1000000, "tt": 358000, "yt": 136000}, "h": "laralopezcalvo", "hd": {"tt": "laralopezcalvo", "yt": "laralopezcalvo"}, "info": "Economista de la UBA con maestría. Hace educación financiera en redes y conduce el podcast Juntala. Estuvo nominada en Actualidad en los Premios Ídolo 2026.", "interior": false, "n": "Lara López Calvo", "place": "", "id": "laralopezcalvo"}, {"a": "Asesor de inversiones matriculado: chequear competencia con Mercado Pago.", "ap": "Economista joven con mirada técnica. Explica el impacto de Meli en PyMEs, empleo y desarrollo a una audiencia de negocios.", "c": "Economía y finanzas", "f": {"ig": 86100, "yt": 20000}, "h": "liam.wickham", "hd": {"yt": "liamwickham"}, "info": "Licenciado en Economía y asesor financiero matriculado. Explica finanzas con pizarra en sus historias, tiene canal de YouTube y participa del stream Plata, Paciencia y Pelotas. Fue aceptado en Wharton.", "interior": false, "n": "Liam Wickham", "place": "", "id": "liam.wickham"}, {"a": "", "ap": "Periodista que cuenta \"historias que importan\". Puede contar historias reales de personas y PyMEs que crecen con Meli.", "c": "Periodismo y actualidad", "f": {"ig": 732000}, "h": "maipistiner", "hd": {}, "info": "Periodista de televisión y medios digitales, con trabajo en América TV e Infobae, conductora y mamá. Enseña comunicación en @academia.comunica y estuvo nominada en los Premios Ídolo 2026.", "interior": false, "n": "Mai Pistiner", "place": "", "id": "maipistiner"}, {"a": "", "ap": "Periodista de Fórmula 1. Puede contar el vínculo de Meli con Franco Colapinto: una empresa argentina que apostó por él desde sus inicios y en 2026 renovó como socio de Alpine.", "c": "Periodismo y actualidad", "f": {"ig": 1000000, "yt": 31500}, "h": "marianoanga", "hd": {"yt": "marianoanga"}, "info": "Periodista y conductor especializado en Fórmula 1. Cubre los Grandes Premios desde el lugar, hace streams y análisis en YouTube y comparte su vida familiar.", "interior": false, "n": "Mariano Angarolla", "place": "", "id": "marianoanga"}, {"a": "Chequear acuerdos con marcas deportivas.", "ap": "Runner con una comunidad fiel. Conecta a Meli con la distancia, el esfuerzo y la llegada de los productos a todo el país.", "c": "Estilo de vida", "f": {"ig": 181000, "tt": 378100, "yt": 94100}, "h": "martuortiz", "hd": {"tt": "martuortiz", "yt": "MartuOrtiz"}, "info": "Creadora de contenido y runner: corrió la maratón de Berlín. Comparte entrenamientos, viajes y vlogs, y también está en YouTube y Twitch.", "interior": false, "n": "Martu Ortiz", "place": "", "id": "martuortiz"}, {"a": "", "ap": "Médica y deportista de Rosario. Muestra la practicidad y la cercanía de Meli en una rutina exigente, fuera de Buenos Aires.", "c": "Estilo de vida", "f": {"ig": 175000, "tt": 557200}, "h": "merividosevich", "hd": {"tt": "merividosevich"}, "info": "Médica recién recibida y deportista de Rosario. Muestra su día a día entre guardias, entrenamientos y viajes, y habla de salud en tono cercano.", "interior": true, "n": "Meri Vidosevich", "place": "Rosario", "id": "merividosevich"}, {"a": "", "ap": "Periodista de viajes cordobesa. Conecta a Meli con los productores regionales de cada provincia.", "c": "Viajes", "f": {"ig": 1100000, "tt": 354300}, "h": "pasaje.en.mano", "hd": {"tt": "pasaje.en.mano"}, "info": "Agus López, periodista de viajes cordobesa. Recomienda destinos dentro y fuera del país, tiene su propia agencia (@pasaje.club) y una cuenta dedicada a Córdoba.", "interior": true, "n": "Pasaje en Mano", "place": "Córdoba", "id": "pasaje.en.mano"}, {"a": "", "ap": "Tecnólogo y emprendedor. Habla con autoridad de cómo la tecnología de Meli achica distancias en el país.", "c": "Ciencia y divulgación", "f": {"ig": 1200000, "tt": 391000, "yt": 573000}, "h": "s.bilinkis", "hd": {"tt": "bilinkis", "yt": "bilinkis"}, "info": "Emprendedor y tecnólogo, fundador de Officenet. Autor de libros como \"Pasaje al futuro\". Hace el ciclo \"Futuro en Construcción\" sobre educación y tecnología.", "interior": false, "n": "Santiago Bilinkis", "place": "", "id": "s.bilinkis"}, {"a": "", "ap": "Cosmetóloga con marca propia y tienda oficial en Meli: un caso real de emprendedora que vende en la plataforma.", "c": "Emprendedores", "f": {"ig": 850000, "tt": 326900}, "h": "soydadatina", "hd": {"tt": "soydadatina"}, "info": "Daniela López, cosmetóloga. Hace reseñas de productos de belleza con mirada técnica, es autora de #pielesreales y creó su propia marca, ACF by Dadatina, que tiene tienda oficial en Mercado Libre.", "interior": false, "n": "Dadatina", "place": "", "id": "soydadatina"}, {"a": "", "ap": "Periodista que cuenta las noticias en criollo. Acerca el impacto de Meli a una audiencia joven.", "c": "Periodismo y actualidad", "f": {"ig": 156000, "tt": 119300}, "h": "tiffydelmastro", "hd": {"tt": "tiffydelmastro"}, "info": "Periodista y coach. Cuenta las noticias \"en criollo\" con un resumen de actualidad y da mentorías de comunicación y creación de contenido.", "interior": false, "n": "Tiffy Del Mastro", "place": "", "id": "tiffydelmastro"}, {"a": "", "ap": "Notero de Olga con entrevistas espontáneas. Acerca la operación de Meli a una audiencia joven y humaniza a quienes trabajan ahí.", "c": "Periodismo y actualidad", "f": {"ig": 877000, "tt": 858800, "yt": 117000}, "h": "valenrizzuti", "hd": {"tt": "valenrizzuti", "yt": "valenrizzuti"}, "info": "Notero de Olga en \"Tapados de Laburo\": entrevista a gente en la calle sobre su trabajo y su vida, con humor espontáneo. Tiene canal de YouTube y estuvo nominado como Ídolo Revelación 2026.", "interior": false, "n": "Valen Rizzuti", "place": "", "id": "valenrizzuti"}, {"a": "", "ap": "Psicóloga y directora creativa. Aporta una mirada sobre emprender y crear desde el propio lugar.", "c": "Estilo de vida", "f": {"ig": 176000}, "h": "valiudica", "hd": {}, "info": "Psicóloga, directora creativa y productora. Tiene el podcast Journal Sessions y la productora Proyecto Producción.", "interior": false, "n": "Valentina Iudica", "place": "", "id": "valiudica"}, {"a": "Los seguidores de Instagram son de la marca: su cuenta fuerte es TikTok (@medialuncita), sin dato relevado. Revisar polémicas pasadas.", "ap": "Pareja de creadores que lanzó su yerba desde el interior y agotó su primera producción en Mercado Libre. Son la historia de una marca nacida en redes que llega a todo el país.", "c": "Emprendedores", "f": {"ig": 193000, "yt": 37500}, "h": "yerbacosmico", "hd": {"yt": "medialuncita"}, "info": "Hernán Reggiardo (de Arequito, Santa Fe) y Samantha Trottier (de Dakota del Norte, EE. UU.) se hicieron virales en TikTok como @medialuncita contando costumbres argentinas. Crearon la yerba Cósmico, que hoy está en más de 2.200 tiendas y se vende en EE. UU., Europa y Australia.", "interior": true, "n": "Sam y Hernán · Yerba Cósmico", "place": "Arequito, Santa Fe", "id": "yerbacosmico"}];
+const CATS=["Emprendedores","Economía y finanzas","Ciencia y divulgación","Periodismo y actualidad","Viajes","Estilo de vida"];
+const NETS={ig:{label:"Instagram",color:"var(--ig)",url:h=>`https://www.instagram.com/${h}/`},
+            tt:{label:"TikTok",color:"var(--tt)",url:h=>`https://www.tiktok.com/@${h}`},
+            yt:{label:"YouTube",color:"var(--yt)",url:h=>`https://www.youtube.com/@${h}`}};
+const fmt=n=>n>=1e6?(n/1e6).toLocaleString("es-AR",{maximumFractionDigits:1})+" M":n>=1e3?Math.round(n/1e3).toLocaleString("es-AR")+" mil":String(n);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const parseNum=s=>{s=String(s||"").trim().toLowerCase().replace(/\s/g,"");if(!s)return 0;
+  const m=s.match(/^([\d.,]+)(k|mil|m|millones)?$/);if(!m)return NaN;
+  const mult=m[2]==="k"||m[2]==="mil"?1e3:(m[2]==="m"||m[2]==="millones")?1e6:1;
+  const v=mult>1?m[1].replace(",","."):m[1].replace(/[.,]/g,"");return Math.round(parseFloat(v)*mult);};
+
+let rows=[],loaded=false,canWrite=false,store=null;
+const open=new Set(),confirming=new Set();
+const state={cat:null,q:"",orden:"total",int:false,fav:false,arch:false};
+
+/* ---------- Almacenamiento: compartido (online) o en este navegador (copia descargada) ---------- */
+function sharedStore(col){
+  return {add:d=>col.add(d),update:(id,d)=>col.doc(id).update(d),remove:id=>col.doc(id).delete(),
+    listen:cb=>col.onSnapshot(s=>cb(s.docs.map(d=>({id:d.id,...d.data()}))),()=>{document.getElementById("board").innerHTML=`<p class="notice">No se pudo cargar la lista. Recargá la página.</p>`;})};
+}
+function localStore(){
+  const KEY="radar-voces-local-v1";let data;
+  try{data=JSON.parse(localStorage.getItem(KEY)||"null");}catch(e){data=null;}
+  if(!Array.isArray(data))data=SNAPSHOT.map(p=>({...p}));
+  let cb=()=>{};const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data));}catch(e){}cb(data.slice());};
+  return {add:async d=>{data.push({...d,id:"l"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)});save();},
+    update:async(id,d)=>{data=data.map(p=>p.id===id?{...p,...d}:p);save();},
+    remove:async id=>{data=data.filter(p=>p.id!==id);save();},
+    listen:f=>{cb=f;f(data.slice());}};
+}
+
+/* ---------- Filtros ---------- */
+const chipsEl=document.getElementById("chips");
+function drawChips(){chipsEl.innerHTML="";
+  [null,...CATS].forEach(c=>{const b=document.createElement("button");b.type="button";b.className="chip";
+    b.textContent=c||"Todos";b.setAttribute("aria-pressed",String(state.cat===c));
+    b.addEventListener("click",()=>{state.cat=c;drawChips();render();});chipsEl.appendChild(b);});}
+
+const moreBtn=document.getElementById("more-btn"),morePanel=document.getElementById("more-panel");
+function syncMoreBtn(){const n=[state.int,state.fav,state.arch].filter(Boolean).length;
+  moreBtn.innerHTML=`Otros filtros${n?` <span class="count">${n}</span>`:""} <span class="caret" aria-hidden="true">▾</span>`;}
+moreBtn.addEventListener("click",()=>{morePanel.hidden=!morePanel.hidden;moreBtn.setAttribute("aria-expanded",String(!morePanel.hidden));syncMoreBtn();});
+document.addEventListener("click",e=>{if(!morePanel.hidden&&!e.target.closest(".more")){morePanel.hidden=true;moreBtn.setAttribute("aria-expanded","false");syncMoreBtn();}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!morePanel.hidden){morePanel.hidden=true;moreBtn.setAttribute("aria-expanded","false");syncMoreBtn();moreBtn.focus();}});
+[["fl-int","int"],["fl-fav","fav"],["fl-arch","arch"]].forEach(([id,k])=>document.getElementById(id).addEventListener("change",e=>{state[k]=e.target.checked;syncMoreBtn();render();}));
+
+/* ---------- Fichas ---------- */
+function card(p){
+  const f=p.f||{},hd=p.hd||{};const max=Math.max(1,...Object.values(f).filter(Boolean));
+  const nets=Object.keys(NETS).filter(k=>f[k]).map(k=>{const h=k==="ig"?p.h:(hd[k]||p.h);
+    return `<a class="net" href="${NETS[k].url(encodeURIComponent(h))}" target="_blank" rel="noopener"><span class="nlab">${NETS[k].label}</span><span class="bar"><i style="width:${Math.max(4,f[k]/max*100)}%;background:${NETS[k].color}"></i></span><span class="nval">${fmt(f[k])}</span></a>`;}).join("");
+  const isOpen=open.has(p.id),id=esc(p.id);
+  const star=canWrite?`<button class="star" type="button" data-act="fav" data-id="${id}" aria-pressed="${!!p.fav}" aria-label="${p.fav?"Quitar de favoritos":"Marcar como favorito"}" title="${p.fav?"Quitar de favoritos":"Marcar como favorito"}">${p.fav?"★":"☆"}</button>`
+    :p.fav?`<span class="star" aria-label="Favorito" aria-pressed="true">★</span>`:"";
+  return `<article class="card${p.fav?" fav":""}${p.arch?" arch":""}">
+    <div class="top"><div style="min-width:0">
+      <h3 class="name">${esc(p.n)}</h3>
+      <div class="meta"><a class="handle" href="${NETS.ig.url(encodeURIComponent(p.h))}" target="_blank" rel="noopener" title="Abrir Instagram de ${esc(p.n)}">@${esc(p.h)} ↗</a>
+      ${p.interior?`<span class="badge int">Del interior${p.place?" · "+esc(p.place):""}</span>`:p.place?`<span class="place">${esc(p.place)}</span>`:""}
+      ${p.arch?`<span class="badge arch">Archivado</span>`:""}</div>
+    </div>${star}</div>
+    ${nets?`<div class="nets">${nets}</div>`:""}
+    ${p.ap?`<div class="aporte"><span class="k">¿Qué aporta a Meli?</span>${esc(p.ap)}</div>`:""}
+    ${isOpen&&p.info?`<div class="info"><span class="k">Quién es</span>${esc(p.info)}</div>`:""}
+    ${p.a?`<div class="alert">⚠ ${esc(p.a)}</div>`:""}
+    <div class="actions">
+      ${p.info?`<button class="link" type="button" data-act="info" data-id="${id}" aria-expanded="${isOpen}">${isOpen?"Menos información":"Más información"}</button>`:""}
+      ${canWrite?(confirming.has(p.id)
+        ?`<span class="confirm">¿Eliminar a ${esc(p.n)}? <button class="link danger" type="button" data-act="del-yes" data-id="${id}">Sí, eliminar</button><button class="link muted" type="button" data-act="del-no" data-id="${id}">No</button></span>`
+        :`<button class="link muted" type="button" data-act="arch" data-id="${id}">${p.arch?"Desarchivar":"Archivar"}</button><button class="link muted" type="button" data-act="del" data-id="${id}">Eliminar</button>`):""}
+    </div>
+  </article>`;
+}
+
+function render(){
+  const board=document.getElementById("board");
+  if(!loaded)return;
+  const all=rows.map(p=>({...p,total:Object.values(p.f||{}).reduce((a,b)=>a+(+b||0),0)}));
+  let list=all.filter(p=>(state.arch?p.arch:!p.arch)&&(!state.cat||p.c===state.cat)&&(!state.int||p.interior)&&(!state.fav||p.fav)
+    &&(!state.q||(p.n+" "+p.h).toLowerCase().includes(state.q)));
+  list.sort((a,b)=>(!!b.fav-!!a.fav)||(state.orden==="nombre"?a.n.localeCompare(b.n,"es"):b.total-a.total));
+  const cats=[...CATS,...new Set(list.map(p=>p.c).filter(c=>!CATS.includes(c)))];
+  const groups=cats.map(c=>[c,list.filter(p=>p.c===c)]).filter(([,l])=>l.length);
+  const nArch=all.filter(p=>p.arch).length;
+  board.innerHTML=!all.length?`<p class="notice">Todavía no hay creadores en la lista. Usá "+ Agregar creador" para sumar el primero.</p>`
+    :groups.length?(state.arch?`<p class="mode">Estás viendo los archivados. Destildá "Ver archivados" en Otros filtros para volver a la lista.</p>`:"")
+      +groups.map(([c,l])=>`<section class="group"><div class="group-head"><h2>${esc(c)}</h2><span>${l.length} ${l.length===1?"creador":"creadores"}</span></div><div class="grid">${l.map(card).join("")}</div></section>`).join("")
+      +(!state.arch&&nArch?`<p class="mode" style="margin-top:24px">${nArch} ${nArch===1?"creador archivado":"creadores archivados"}: los ves con "Ver archivados" en Otros filtros.</p>`:"")
+    :`<p class="empty">${state.arch&&!nArch?"No hay creadores archivados.":"No hay creadores con esos filtros."}</p>`;
+  document.getElementById("s-perfiles").textContent=list.length;
+  document.getElementById("s-fav").textContent=all.filter(p=>p.fav&&!p.arch).length;
+}
+
+document.getElementById("board").addEventListener("click",async e=>{
+  const b=e.target.closest("[data-act]");if(!b)return;const id=b.dataset.id,act=b.dataset.act;
+  const p=rows.find(r=>r.id===id);
+  if(act==="info"){open.has(id)?open.delete(id):open.add(id);render();return;}
+  if(act==="del"){confirming.add(id);render();return;}
+  if(act==="del-no"){confirming.delete(id);render();return;}
+  if(!store||!p)return;
+  b.disabled=true;
+  try{
+    if(act==="fav")await store.update(id,{fav:!p.fav});
+    if(act==="arch")await store.update(id,{arch:!p.arch});
+    if(act==="del-yes"){await store.remove(id);confirming.delete(id);}
+  }catch(err){alertLine("No se pudo guardar el cambio. Probá de nuevo en un momento.");setOpen(true);}
+  render();
+});
+function alertLine(t){document.getElementById("a-err").textContent=t;}
+document.getElementById("q").addEventListener("input",e=>{state.q=e.target.value.trim().toLowerCase();render();});
+document.getElementById("orden").addEventListener("change",e=>{state.orden=e.target.value;render();});
+
+/* ---------- Alta de creadores ---------- */
+const panel=document.getElementById("add"),openBtn=document.getElementById("open-add"),form=document.getElementById("add-form");
+const selC=document.getElementById("a-c");CATS.forEach(c=>{const o=document.createElement("option");o.value=o.textContent=c;selC.appendChild(o);});
+const setOpen=v=>{panel.hidden=!v;openBtn.setAttribute("aria-expanded",String(v));if(v)document.getElementById("a-n").focus();};
+openBtn.addEventListener("click",()=>setOpen(panel.hidden));
+document.getElementById("cancel-add").addEventListener("click",()=>{form.reset();alertLine("");setOpen(false);});
+form.addEventListener("submit",async e=>{e.preventDefault();if(!store)return;
+  const v=id=>document.getElementById(id).value.trim();
+  const n=v("a-n"),h=v("a-h").replace(/^@/,"");
+  if(!n||!h){alertLine("Completá el nombre y el usuario de Instagram.");return;}
+  const f={};for(const k of["ig","tt","yt"]){const x=parseNum(v("a-"+k));if(Number.isNaN(x)){alertLine("Escribí los seguidores como número, por ejemplo 250000, 250k o 1,2M.");return;}if(x)f[k]=x;}
+  const hd={};if(v("a-htt"))hd.tt=v("a-htt").replace(/^@/,"");if(v("a-hyt"))hd.yt=v("a-hyt").replace(/^@/,"");
+  const doc={n,h,c:v("a-c"),place:v("a-place"),interior:document.getElementById("a-int").checked,f,hd,ap:v("a-ap"),info:v("a-info"),a:v("a-al"),
+    fav:document.getElementById("a-fav").checked,arch:false,creado:new Date().toISOString()};
+  const save=document.getElementById("a-save");save.disabled=true;
+  try{await store.add(doc);form.reset();alertLine("");setOpen(false);
+    Object.assign(state,{cat:null,q:"",int:false,fav:false,arch:false});document.getElementById("q").value="";
+    ["fl-int","fl-fav","fl-arch"].forEach(i=>document.getElementById(i).checked=false);syncMoreBtn();drawChips();render();}
+  catch(err){alertLine(err&&err.code==="quota_exceeded"?"La lista llegó a su límite. Eliminá algún creador y probá de nuevo.":"No se pudo guardar. Revisá tu acceso a la página y probá de nuevo.");}
+  save.disabled=false;});
+
+drawChips();
+(async()=>{
+  let db=null;try{db=await window.claude?.use?.("db");}catch(e){db=null;}
+  if(db){
+    store=sharedStore(db.collection("creadores"));
+    let can=null;try{const user=await window.claude.use("user");can=user?await user.can("data.write"):null;}catch(e){}
+    canWrite=can!==false;
+    document.getElementById("mode").textContent=canWrite?"Lista compartida: lo que agregues, marques o archives lo ve todo el equipo.":"Lista compartida en modo lectura.";
+  }else if(SNAPSHOT.length){
+    store=localStore();canWrite=true;
+    document.getElementById("mode").textContent="Copia descargada: los cambios se guardan solo en este navegador y no los ve el resto del equipo.";
+  }else{
+    document.getElementById("board").innerHTML=`<p class="notice">La lista compartida se ve en la versión online de esta página, con una cuenta de Claude que tenga acceso.</p>`;return;
+  }
+  openBtn.hidden=!canWrite;
+  store.listen(list=>{rows=list;loaded=true;render();});
+})();
+</script>
+</body></html>
